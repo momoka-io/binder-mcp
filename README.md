@@ -1,1 +1,309 @@
-# binder-mcp
+# bio-mcp
+
+`bio-mcp` is a local-only Python MCP server for lightweight bioinformatics sequence analysis. Phase 1 implements FASTA/protein validation, ProtParam-like metrics, a small packaged AAindex fixture, AAindex sequence features, and health/status reporting. Phase 1B adds lightweight local MAFFT and Clustal Omega wrappers.
+
+No Phase 1 or Phase 1B tool makes network calls, scrapes websites, invokes heavy/GPU compute tools, or sends biological data to remote services. System packages are never installed automatically.
+
+## Install
+
+```bash
+python -m pip install -e .[dev]
+```
+
+For runtime-only use:
+
+```bash
+python -m pip install -e .
+```
+
+## Run
+
+```bash
+python -m bio_mcp.server
+```
+
+Help/version checks:
+
+```bash
+python -m bio_mcp.server --help
+bio-mcp --version
+```
+
+## Codex MCP Config Example
+
+```json
+{
+  "mcpServers": {
+    "bio-mcp": {
+      "command": "python",
+      "args": ["-m", "bio_mcp.server"],
+      "cwd": "E:/gitrepository/binder-mcp"
+    }
+  }
+}
+```
+
+## Tools
+
+### `validate_protein_sequence`
+
+Input:
+
+```json
+{
+  "text": ">seq1\nACD-XZ*\n"
+}
+```
+
+Example output excerpt:
+
+```json
+{
+  "cleaned_sequence": "ACD",
+  "length": 3,
+  "invalid_characters": [
+    { "character": "-", "count": 1, "positions": [4] },
+    { "character": "X", "count": 1, "positions": [5] },
+    { "character": "Z", "count": 1, "positions": [6] },
+    { "character": "*", "count": 1, "positions": [7] }
+  ],
+  "is_valid": false,
+  "warnings": [
+    "Input contained a FASTA header; sequence lines were parsed.",
+    "Invalid characters were omitted from cleaned_sequence."
+  ]
+}
+```
+
+### `protparam_analyze`
+
+Input:
+
+```json
+{
+  "text": "ACDEFWY"
+}
+```
+
+Example output excerpt with Biopython installed:
+
+```json
+{
+  "length": 7,
+  "amino_acid_composition": { "A": 1, "C": 1, "D": 1, "E": 1, "F": 1, "G": 0 },
+  "molecular_weight": 932.9943999999999,
+  "theoretical_pi": 4.0500284194946286,
+  "aromaticity": 0.42857142857142855,
+  "instability_index": 98.85714285714286,
+  "gravy": -0.3,
+  "unsupported_metrics": []
+}
+```
+
+When Biopython is not installed, `protparam_analyze` uses local fallback metrics and returns `null` for `theoretical_pi` and `instability_index` while listing them in `unsupported_metrics`.
+
+### `aaindex_lookup`
+
+Input:
+
+```json
+{
+  "index_id": "KYTJ820101"
+}
+```
+
+Example output excerpt:
+
+```json
+{
+  "query": "KYTJ820101",
+  "matches": [
+    {
+      "accession": "KYTJ820101",
+      "title": "Hydropathy index",
+      "values": {
+        "A": 1.8,
+        "C": 2.5,
+        "D": -3.5
+      }
+    }
+  ],
+  "warnings": [
+    "Using a small packaged AAindex fixture; full AAindex parsing is planned later."
+  ]
+}
+```
+
+The Phase 1 package includes a small AAindex fixture for `KYTJ820101` and `HOPT810101`; the interface is designed so a full AAindex backend can be added later.
+
+### `aaindex_sequence_features`
+
+Input:
+
+```json
+{
+  "text": "ACD",
+  "index_id": "KYTJ820101"
+}
+```
+
+Example output excerpt:
+
+```json
+{
+  "index_id": "KYTJ820101",
+  "sequence": "ACD",
+  "length": 3,
+  "per_residue_values": [
+    { "position": 1, "residue": "A", "value": 1.8 },
+    { "position": 2, "residue": "C", "value": 2.5 },
+    { "position": 3, "residue": "D", "value": -3.5 }
+  ],
+  "summary_stats": {
+    "mean": 0.26666666666666666,
+    "min": -3.5,
+    "max": 2.5
+  },
+  "missing_residues": []
+}
+```
+
+### `mafft_align`
+
+Requires a local `mafft` binary on `PATH`.
+
+Input:
+
+```json
+{
+  "fasta_text": ">seq1\nACDEFG\n>seq2\nACDFFG\n",
+  "mode": "auto",
+  "timeout_sec": 60
+}
+```
+
+Missing binary output excerpt:
+
+```json
+{
+  "aligned_fasta": null,
+  "number_of_sequences": 2,
+  "command_version": null,
+  "stderr_summary": "",
+  "warnings": [
+    "Dependency error: required binary 'mafft' was not found on PATH."
+  ],
+  "error": "Dependency error: required binary 'mafft' was not found on PATH."
+}
+```
+
+Successful execution output excerpt, from a mocked test or a machine with MAFFT installed:
+
+```json
+{
+  "aligned_fasta": ">seq1\nACDEFG-\n>seq2\nACD-FFG\n",
+  "number_of_sequences": 2,
+  "command_version": "v7.520",
+  "stderr_summary": "Progressive alignment complete",
+  "warnings": [],
+  "error": null
+}
+```
+
+Supported MAFFT modes are `auto`, `localpair`, `globalpair`, and `genafpair`.
+
+### `clustalo_align`
+
+Requires a local `clustalo` binary on `PATH`.
+
+Input:
+
+```json
+{
+  "fasta_text": ">seq1\nACDEFG\n>seq2\nACDFFG\n",
+  "timeout_sec": 60
+}
+```
+
+Missing binary output excerpt:
+
+```json
+{
+  "aligned_fasta": null,
+  "number_of_sequences": 2,
+  "command_version": null,
+  "stderr_summary": "",
+  "warnings": [
+    "Dependency error: required binary 'clustalo' was not found on PATH."
+  ],
+  "error": "Dependency error: required binary 'clustalo' was not found on PATH."
+}
+```
+
+Successful execution output excerpt, from a mocked test or a machine with Clustal Omega installed:
+
+```json
+{
+  "aligned_fasta": ">seq1\nACDEFG-\n>seq2\nACD-FFG\n",
+  "number_of_sequences": 2,
+  "command_version": "1.2.4",
+  "stderr_summary": "clustalo done",
+  "warnings": [],
+  "error": null
+}
+```
+
+### `bio_mcp_health`
+
+Example output excerpt:
+
+```json
+{
+  "package_version": "0.1.0",
+  "python_version": "3.11.9",
+  "optional_dependencies": {
+    "biopython": { "installed": true, "version": "1.87" },
+    "mcp": { "installed": true, "version": "1.27.1" }
+  },
+  "cli_binaries": {
+    "mafft": {
+      "available": false,
+      "path": null,
+      "version": null,
+      "error": "Dependency error: required binary 'mafft' was not found on PATH."
+    },
+    "clustalo": {
+      "available": true,
+      "path": "/usr/bin/clustalo",
+      "version": "1.2.4",
+      "error": null
+    }
+  },
+  "available_tools": [
+    "validate_protein_sequence",
+    "protparam_analyze",
+    "aaindex_lookup",
+    "aaindex_sequence_features",
+    "mafft_align",
+    "clustalo_align",
+    "bio_mcp_health"
+  ],
+  "execution_mode": "local"
+}
+```
+
+## Development
+
+```bash
+pytest
+python -m bio_mcp.server --help
+```
+
+## Known Phase 1 Limitations
+
+- The AAindex backend is a small packaged fixture, not a full AAindex parser.
+- Without Biopython, `protparam_analyze` does not compute theoretical pI or instability index.
+- Only the 20 standard amino acid one-letter codes are accepted for computation.
+- MAFFT and Clustal Omega wrappers require local binaries on `PATH`; they are not installed or downloaded by `bio-mcp`.
+- Local BLAST/PSI-BLAST is still not implemented.
+- Phase 1B does not include AlphaFold, Rosetta, docking, molecular dynamics, GPU tools, or remote services.
