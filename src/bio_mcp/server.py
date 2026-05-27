@@ -10,12 +10,15 @@ from bio_mcp.core.sequence import MAX_PROTEIN_SEQUENCE_LENGTH
 from bio_mcp.schemas import (
     AaindexLookupInput,
     AaindexSequenceFeaturesInput,
+    BlastpLocalInput,
     ClustaloAlignInput,
     MafftAlignInput,
+    PsiblastLocalInput,
     ProteinSequenceInput,
 )
 from bio_mcp.tools.aaindex import aaindex_lookup_tool, aaindex_sequence_features_tool
 from bio_mcp.tools.alignment import clustalo_align_tool, mafft_align_tool
+from bio_mcp.tools.blast import blastp_local_tool, psiblast_local_tool
 from bio_mcp.tools.health import bio_mcp_health_tool
 from bio_mcp.tools.protparam import protparam_analyze_tool
 from bio_mcp.tools.validation import validate_protein_sequence_tool
@@ -110,6 +113,48 @@ def build_server():
         return clustalo_align_tool(
             ClustaloAlignInput(
                 fasta_text=fasta_text,
+                timeout_sec=timeout_sec,
+            )
+        ).model_dump()
+
+    @mcp.tool()
+    def blastp_local(
+        query_fasta: str,
+        db_path: str,
+        evalue: float = 1e-5,
+        max_target_seqs: int = 10,
+        timeout_sec: int = 120,
+    ) -> dict:
+        """Search a local protein BLAST database with the local BLASTP binary."""
+
+        return blastp_local_tool(
+            BlastpLocalInput(
+                query_fasta=query_fasta,
+                db_path=db_path,
+                evalue=evalue,
+                max_target_seqs=max_target_seqs,
+                timeout_sec=timeout_sec,
+            )
+        ).model_dump()
+
+    @mcp.tool()
+    def psiblast_local(
+        query_fasta: str,
+        db_path: str,
+        num_iterations: int = 3,
+        evalue: float = 1e-5,
+        max_target_seqs: int = 10,
+        timeout_sec: int = 300,
+    ) -> dict:
+        """Search a local protein BLAST database with the local PSI-BLAST binary."""
+
+        return psiblast_local_tool(
+            PsiblastLocalInput(
+                query_fasta=query_fasta,
+                db_path=db_path,
+                num_iterations=num_iterations,
+                evalue=evalue,
+                max_target_seqs=max_target_seqs,
                 timeout_sec=timeout_sec,
             )
         ).model_dump()

@@ -5,6 +5,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 from dataclasses import dataclass
+from os import access, environ, X_OK
 from pathlib import Path
 from typing import Sequence
 
@@ -26,6 +27,7 @@ class CommandStatus:
     available: bool
     path: str | None
     version: str | None
+    resolution_source: str = "missing"
     error: str | None = None
 
 
@@ -72,31 +74,86 @@ def run_command(
     )
 
 
-def detect_command(command: str, version_args: Sequence[str], *, timeout_sec: int = 5) -> CommandStatus:
+def detect_command(
+    command: str,
+    version_args: Sequence[str],
+    *,
+    env_var: str | None = None,
+    timeout_sec: int = 5,
+) -> CommandStatus:
     """Detect a command path and best-effort version string."""
 
-    path = shutil.which(command)
+    path: str | None = None
+    resolution_source = "missing"
+    if env_var:
+        env_path = environ.get(env_var)
+        if env_path:
+            resolution_source = "env_override"
+            candidate = Path(env_path)
+            if not candidate.is_file():
+                return CommandStatus(
+                    available=False,
+                    path=env_path,
+                    version=None,
+                    resolution_source=resolution_source,
+                    error=(
+                        f"Dependency error: {env_var} points to '{env_path}', "
+                        "but that file does not exist."
+                    ),
+                )
+            if not access(candidate, X_OK):
+                return CommandStatus(
+                    available=False,
+                    path=env_path,
+                    version=None,
+                    resolution_source=resolution_source,
+                    error=(
+                        f"Dependency error: {env_var} points to '{env_path}', "
+                        "but it is not executable."
+                    ),
+                )
+            path = str(candidate)
+
+    if path is None:
+        path = shutil.which(command)
+        if path is not None:
+            resolution_source = "PATH"
+
     if path is None:
         return CommandStatus(
             available=False,
             path=None,
             version=None,
+            resolution_source="missing",
             error=f"Dependency error: required binary '{command}' was not found on PATH.",
         )
 
     try:
         result = run_command([path, *version_args], cwd=Path.cwd(), timeout_sec=timeout_sec)
     except CommandTimeoutError as exc:
-        return CommandStatus(available=True, path=path, version=None, error=str(exc))
+        return CommandStatus(
+            available=True,
+            path=path,
+            version=None,
+            resolution_source=resolution_source,
+            error=str(exc),
+        )
     except OSError as exc:
         return CommandStatus(
             available=True,
             path=path,
             version=None,
+            resolution_source=resolution_source,
             error=f"Could not run '{command}' to detect version: {exc}",
         )
 
     combined_output = "\n".join(part for part in (result.stdout, result.stderr) if part.strip())
     version = next((line.strip() for line in combined_output.splitlines() if line.strip()), None)
     error = None if result.returncode == 0 else summarize_stderr(result.stderr) or result.stdout.strip()
-    return CommandStatus(available=True, path=path, version=version, error=error)
+    return CommandStatus(
+        available=True,
+        path=path,
+        version=version,
+        resolution_source=resolution_source,
+        error=error,
+    )

@@ -14,6 +14,7 @@ from bio_mcp.schemas import (
     ToolProvenance,
 )
 from bio_mcp.tools.alignment import detect_clustalo, detect_mafft
+from bio_mcp.tools.blast import detect_blastp, detect_makeblastdb, detect_psiblast
 
 TOOL_NAME = "bio_mcp_health"
 AVAILABLE_TOOLS = [
@@ -23,6 +24,8 @@ AVAILABLE_TOOLS = [
     "aaindex_sequence_features",
     "mafft_align",
     "clustalo_align",
+    "blastp_local",
+    "psiblast_local",
     "bio_mcp_health",
 ]
 OPTIONAL_DEPENDENCIES = {
@@ -57,12 +60,16 @@ def bio_mcp_health_tool() -> HealthOutput:
     command_statuses = {
         "mafft": detect_mafft(),
         "clustalo": detect_clustalo(),
+        "blastp": detect_blastp(),
+        "psiblast": detect_psiblast(),
+        "makeblastdb": detect_makeblastdb(),
     }
     cli_binaries = {
         name: CommandDependencyStatus(
             available=status.available,
             path=status.path,
             version=status.version,
+            resolution_source=status.resolution_source,
             error=status.error,
         )
         for name, status in command_statuses.items()

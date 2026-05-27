@@ -166,6 +166,23 @@ class ClustaloAlignInput(BaseModel):
     timeout_sec: int = Field(default=60, ge=1, le=600)
 
 
+class BlastpLocalInput(BaseModel):
+    """Input for local BLASTP search."""
+
+    query_fasta: str = Field(..., description="Protein FASTA query text to search locally.")
+    db_path: str = Field(..., description="Local BLAST protein database prefix.")
+    evalue: float = Field(default=1e-5, gt=0)
+    max_target_seqs: int = Field(default=10, ge=1, le=10_000)
+    timeout_sec: int = Field(default=120, ge=1, le=3_600)
+
+
+class PsiblastLocalInput(BlastpLocalInput):
+    """Input for local PSI-BLAST search."""
+
+    num_iterations: int = Field(default=3, ge=1, le=10)
+    timeout_sec: int = Field(default=300, ge=1, le=3_600)
+
+
 class AlignmentOutput(BaseModel):
     """Output from a local multiple-sequence alignment wrapper."""
 
@@ -178,6 +195,44 @@ class AlignmentOutput(BaseModel):
     max_sequences: int = MAX_ALIGNMENT_SEQUENCE_COUNT
     max_sequence_length: int = MAX_ALIGNMENT_SEQUENCE_LENGTH
     provenance: ToolProvenance
+
+
+class BlastTabularHit(BaseModel):
+    """One parsed BLAST outfmt 6 hit."""
+
+    qseqid: str
+    sseqid: str
+    pident: float
+    length: int
+    mismatch: int
+    gapopen: int
+    qstart: int
+    qend: int
+    sstart: int
+    send: int
+    evalue: float
+    bitscore: float
+
+
+class BlastpLocalOutput(BaseModel):
+    """Output from a local BLASTP wrapper."""
+
+    hits: list[BlastTabularHit]
+    raw_tabular: str
+    number_of_hits: int
+    query_count: int
+    db_path: str
+    command_version: str | None
+    stderr_summary: str
+    warnings: list[str] = Field(default_factory=list)
+    error: str | None = None
+    provenance: ToolProvenance
+
+
+class PsiblastLocalOutput(BlastpLocalOutput):
+    """Output from a local PSI-BLAST wrapper."""
+
+    num_iterations: int
 
 
 class OptionalDependencyStatus(BaseModel):
@@ -193,6 +248,7 @@ class CommandDependencyStatus(BaseModel):
     available: bool
     path: str | None = None
     version: str | None = None
+    resolution_source: Literal["env_override", "PATH", "missing"] = "missing"
     error: str | None = None
 
 

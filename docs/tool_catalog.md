@@ -11,7 +11,8 @@ This roadmap keeps Phase 1 local-only and lightweight. Biological inputs are not
 | `bio_mcp_health` | phase1 | Implemented. Reports package version, Python version, optional dependencies, and available tools. |
 | `mafft_align` | phase1B | Implemented. Local CLI wrapper only; requires a `mafft` binary on `PATH`, validates protein FASTA input, uses temporary directories, and enforces timeouts and input limits. |
 | `clustalo_align` | phase1B | Implemented. Local CLI wrapper only; requires a `clustalo` binary on `PATH`, validates protein FASTA input, uses temporary directories, and enforces timeouts and input limits. |
-| Local BLAST / PSI-BLAST | phase1B | Not implemented. Requires explicit local binary and database configuration. |
+| `blastp_local` | phase1B | Implemented. Local BLASTP wrapper only; requires BLAST+ `blastp` and a separately created local protein BLAST database prefix. No remote BLAST or database download. |
+| `psiblast_local` | phase1B | Implemented. Local PSI-BLAST wrapper only; requires BLAST+ `psiblast` and a separately created local protein BLAST database prefix. Iterations are limited to 1-10. No remote BLAST or database download. |
 | AlphaFold or other GPU structure models | blocked/needs API/license/GPU | Not implemented in Phase 1. Requires separate safety, dependency, and compute planning. |
 | Rosetta | blocked/needs API/license/GPU | Not implemented in Phase 1. Requires license and heavyweight local setup. |
 | GROMACS / AMBER / CHARMM molecular dynamics | blocked/needs API/license/GPU | Not implemented in Phase 1. Heavy simulation workflows are out of scope. |

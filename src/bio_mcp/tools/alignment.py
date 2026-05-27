@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from bio_mcp import __version__
-from bio_mcp.core.sequence import parse_protein_fasta_records, render_fasta
+from bio_mcp.core.sequence import ProteinSequenceError, parse_protein_fasta_records, render_fasta
 from bio_mcp.core.subprocesses import (
     CommandStatus,
     CommandTimeoutError,
@@ -18,6 +18,8 @@ from bio_mcp.schemas import AlignmentOutput, ClustaloAlignInput, MafftAlignInput
 
 MAFFT_TOOL_NAME = "mafft_align"
 CLUSTALO_TOOL_NAME = "clustalo_align"
+MAFFT_ENV_VAR = "BIO_MCP_MAFFT_BIN"
+CLUSTALO_ENV_VAR = "BIO_MCP_CLUSTALO_BIN"
 
 MAFFT_MODE_ARGS = {
     "auto": ["--auto"],
@@ -30,19 +32,26 @@ MAFFT_MODE_ARGS = {
 def detect_mafft() -> CommandStatus:
     """Detect the local MAFFT binary and version."""
 
-    return detect_command("mafft", ["--version"])
+    return detect_command("mafft", ["--version"], env_var=MAFFT_ENV_VAR)
 
 
 def detect_clustalo() -> CommandStatus:
     """Detect the local Clustal Omega binary and version."""
 
-    return detect_command("clustalo", ["--version"])
+    return detect_command("clustalo", ["--version"], env_var=CLUSTALO_ENV_VAR)
 
 
 def mafft_align_tool(params: MafftAlignInput) -> AlignmentOutput:
     """Align protein FASTA records with a local MAFFT binary."""
 
-    records, validation_warnings = parse_protein_fasta_records(params.fasta_text)
+    try:
+        records, validation_warnings = parse_protein_fasta_records(params.fasta_text)
+    except ProteinSequenceError as exc:
+        return _validation_error_output(
+            tool_name=MAFFT_TOOL_NAME,
+            backend="mafft",
+            error=str(exc),
+        )
     warnings = list(validation_warnings)
     status = detect_mafft()
     if not status.available:
@@ -126,7 +135,14 @@ def mafft_align_tool(params: MafftAlignInput) -> AlignmentOutput:
 def clustalo_align_tool(params: ClustaloAlignInput) -> AlignmentOutput:
     """Align protein FASTA records with a local Clustal Omega binary."""
 
-    records, validation_warnings = parse_protein_fasta_records(params.fasta_text)
+    try:
+        records, validation_warnings = parse_protein_fasta_records(params.fasta_text)
+    except ProteinSequenceError as exc:
+        return _validation_error_output(
+            tool_name=CLUSTALO_TOOL_NAME,
+            backend="clustalo",
+            error=str(exc),
+        )
     warnings = list(validation_warnings)
     status = detect_clustalo()
     if not status.available:
@@ -240,6 +256,26 @@ def _dependency_error_output(
             backend_version=status.version,
             execution_mode="local",
             warnings=output_warnings,
+        ),
+    )
+
+
+def _validation_error_output(*, tool_name: str, backend: str, error: str) -> AlignmentOutput:
+    warnings = [error]
+    return AlignmentOutput(
+        aligned_fasta=None,
+        number_of_sequences=0,
+        command_version=None,
+        stderr_summary="",
+        warnings=warnings,
+        error=error,
+        provenance=ToolProvenance(
+            tool_name=tool_name,
+            wrapper_version=__version__,
+            backend=backend,
+            backend_version=None,
+            execution_mode="local",
+            warnings=warnings,
         ),
     )
 
