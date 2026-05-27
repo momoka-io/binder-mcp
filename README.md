@@ -4,6 +4,8 @@
 
 No Phase 1 or Phase 1B tool makes network calls, scrapes websites, invokes heavy/GPU compute tools, or sends biological data to remote services. System packages are never installed automatically.
 
+The repository checkout directory may still be named `binder-mcp` for historical reasons. The project display name is `bio-mcp`, the Python module is `bio_mcp`, the Codex MCP server key is `bio_mcp`, and the CLI command is `bio-mcp`.
+
 ## Install
 
 ```bash
@@ -29,18 +31,13 @@ python -m bio_mcp.server --help
 bio-mcp --version
 ```
 
-## Codex MCP Config Example
+## Codex `config.toml` Example
 
-```json
-{
-  "mcpServers": {
-    "bio-mcp": {
-      "command": "python",
-      "args": ["-m", "bio_mcp.server"],
-      "cwd": "E:/gitrepository/binder-mcp"
-    }
-  }
-}
+```toml
+[mcp_servers.bio_mcp]
+command = "python"
+args = ["-m", "bio_mcp.server"]
+cwd = "E:/gitrepository/binder-mcp"
 ```
 
 ## Tools

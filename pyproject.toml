@@ -27,7 +27,7 @@ dev = [
 bio-mcp = "bio_mcp.server:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/bio_mcp", "src/binder_mcp"]
+packages = ["src/bio_mcp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

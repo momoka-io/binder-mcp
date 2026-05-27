@@ -32,7 +32,7 @@ def build_server():
             "Install with: python -m pip install -e ."
         ) from exc
 
-    mcp = FastMCP("bio-mcp")
+    mcp = FastMCP("bio_mcp")
 
     @mcp.tool()
     def validate_protein_sequence(

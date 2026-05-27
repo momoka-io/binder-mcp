@@ -2,7 +2,7 @@
 
 ## Project goal
 
-Build a Python MCP server named `binder-mcp` that exposes selected bioinformatics tools as safe, typed, testable MCP tools.
+Build a Python MCP server with project display name `bio-mcp` that exposes selected bioinformatics tools as safe, typed, testable MCP tools. The Python package/module name is `bio_mcp`. The repository checkout folder may remain named `binder-mcp`, but that is not the package, CLI, or MCP server name.
 
 The project will be implemented incrementally. Do not attempt to wrap all tools at once.
 
@@ -29,10 +29,10 @@ Use Python 3.11+.
 
 Preferred layout:
 
-- `src/binder_mcp/server.py`: MCP server entrypoint
-- `src/binder_mcp/schemas.py`: Pydantic input/output models
-- `src/binder_mcp/tools/`: individual tool modules
-- `src/binder_mcp/core/`: shared validation, sequence parsing, subprocess helpers
+- `src/bio_mcp/server.py`: MCP server entrypoint
+- `src/bio_mcp/schemas.py`: Pydantic input/output models
+- `src/bio_mcp/tools/`: individual tool modules
+- `src/bio_mcp/core/`: shared validation, sequence parsing, subprocess helpers
 - `tests/`: pytest tests
 - `docs/tool_catalog.md`: tool roadmap and status
 - `README.md`: install, run, Codex MCP config, examples
