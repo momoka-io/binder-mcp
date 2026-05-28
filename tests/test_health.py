@@ -1,5 +1,6 @@
 from bio_mcp.core.subprocesses import CommandStatus
 from bio_mcp.server import build_server
+from bio_mcp.tools.aaindex import AAINDEX1_ENV_VAR
 from bio_mcp.tools.health import AVAILABLE_TOOLS, bio_mcp_health_tool
 
 
@@ -7,6 +8,7 @@ EXPECTED_TOOLS = {
     "validate_protein_sequence",
     "protparam_analyze",
     "aaindex_lookup",
+    "aaindex_list",
     "aaindex_sequence_features",
     "mafft_align",
     "clustalo_align",
@@ -38,7 +40,22 @@ def test_health_reports_available_tools():
     assert "blastp" in output.cli_binaries
     assert "psiblast" in output.cli_binaries
     assert "makeblastdb" in output.cli_binaries
+    assert output.aaindex_backend.available is True
+    assert output.aaindex_backend.record_count >= 2
     assert output.execution_mode == "local"
+
+
+def test_health_reports_bad_aaindex_backend_without_crashing(monkeypatch, tmp_path):
+    missing_path = tmp_path / "missing-aaindex1"
+    monkeypatch.setenv(AAINDEX1_ENV_VAR, str(missing_path))
+
+    output = bio_mcp_health_tool()
+
+    assert output.aaindex_backend.backend_source == "env_file"
+    assert output.aaindex_backend.available is False
+    assert output.aaindex_backend.record_count == 0
+    assert output.aaindex_backend.error is not None
+    assert "AAindex backend error" in " ".join(output.warnings)
 
 
 def test_health_reports_cli_binary_versions(monkeypatch):

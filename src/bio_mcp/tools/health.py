@@ -14,6 +14,7 @@ from bio_mcp.schemas import (
     ToolProvenance,
 )
 from bio_mcp.tools.alignment import detect_clustalo, detect_mafft
+from bio_mcp.tools.aaindex import aaindex_backend_status
 from bio_mcp.tools.blast import detect_blastp, detect_makeblastdb, detect_psiblast
 
 TOOL_NAME = "bio_mcp_health"
@@ -21,6 +22,7 @@ AVAILABLE_TOOLS = [
     "validate_protein_sequence",
     "protparam_analyze",
     "aaindex_lookup",
+    "aaindex_list",
     "aaindex_sequence_features",
     "mafft_align",
     "clustalo_align",
@@ -80,11 +82,17 @@ def bio_mcp_health_tool() -> HealthOutput:
         elif status.available and status.error:
             warnings.append(f"{name} was found but version detection reported: {status.error}")
 
+    aaindex_status = aaindex_backend_status()
+    warnings.extend(aaindex_status.warnings)
+    if aaindex_status.error:
+        warnings.append(f"AAindex backend error: {aaindex_status.error}")
+
     return HealthOutput(
         package_version=__version__,
         python_version=platform.python_version(),
         optional_dependencies=optional_dependencies,
         cli_binaries=cli_binaries,
+        aaindex_backend=aaindex_status,
         available_tools=AVAILABLE_TOOLS,
         execution_mode="local",
         warnings=warnings,

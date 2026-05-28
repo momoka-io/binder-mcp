@@ -1,6 +1,6 @@
 # bio-mcp
 
-`bio-mcp` is a local-only Python MCP server for lightweight bioinformatics sequence analysis. Phase 1 implements FASTA/protein validation, ProtParam-like metrics, a small packaged AAindex fixture, AAindex sequence features, and health/status reporting. Phase 1B adds lightweight local MAFFT, Clustal Omega, BLASTP, and PSI-BLAST wrappers.
+`bio-mcp` is a local-only Python MCP server for lightweight bioinformatics sequence analysis. Phase 1 implements FASTA/protein validation, ProtParam-like metrics, AAindex1 lookup and sequence features, and health/status reporting. Phase 1B adds lightweight local MAFFT, Clustal Omega, BLASTP, and PSI-BLAST wrappers.
 
 No Phase 1 or Phase 1B tool makes network calls, scrapes websites, invokes heavy/GPU compute tools, or sends biological data to remote services. System packages are never installed automatically.
 
@@ -107,6 +107,17 @@ When Biopython is not installed, `protparam_analyze` uses local fallback metrics
 
 ### `aaindex_lookup`
 
+AAindex support has two local backend modes:
+
+- Default mode uses a small packaged fixture containing `KYTJ820101` and `HOPT810101`.
+- Full local mode parses a local AAindex1 flat file selected by `BIO_MCP_AAINDEX1_PATH`.
+
+```bash
+export BIO_MCP_AAINDEX1_PATH=/path/to/aaindex1
+```
+
+`bio-mcp` does not download AAindex automatically. AAindex parsing is local-only, and no biological data is sent to remote services. AAindex1 is supported; AAindex2 and AAindex3 are not implemented yet.
+
 Input:
 
 ```json
@@ -124,6 +135,11 @@ Example output excerpt:
     {
       "accession": "KYTJ820101",
       "title": "Hydropathy index",
+      "description": "Kyte-Doolittle hydropathy scale packaged as a Phase 1 AAindex fixture.",
+      "pmid": null,
+      "authors": "Kyte J. and Doolittle R.F.",
+      "journal": "J. Mol. Biol. 157, 105-132 (1982)",
+      "correlations": {},
       "values": {
         "A": 1.8,
         "C": 2.5,
@@ -131,13 +147,60 @@ Example output excerpt:
       }
     }
   ],
+  "backend_source": "packaged_fixture",
+  "backend_path": null,
+  "record_count": 2,
   "warnings": [
-    "Using a small packaged AAindex fixture; full AAindex parsing is planned later."
-  ]
+    "Using a small packaged AAindex fixture. Set BIO_MCP_AAINDEX1_PATH to a local AAindex1 flat file for full local AAindex1 support."
+  ],
+  "error": null
 }
 ```
 
-The Phase 1 package includes a small AAindex fixture for `KYTJ820101` and `HOPT810101`; the interface is designed so a full AAindex backend can be added later.
+Query search:
+
+```json
+{
+  "query": "hydrophilicity",
+  "limit": 20
+}
+```
+
+### `aaindex_list`
+
+Input:
+
+```json
+{
+  "query": "hydro",
+  "limit": 50
+}
+```
+
+Example output excerpt:
+
+```json
+{
+  "records": [
+    {
+      "accession": "KYTJ820101",
+      "title": "Hydropathy index",
+      "description": "Kyte-Doolittle hydropathy scale packaged as a Phase 1 AAindex fixture.",
+      "pmid": null,
+      "authors": "Kyte J. and Doolittle R.F.",
+      "journal": "J. Mol. Biol. 157, 105-132 (1982)",
+      "correlations": {}
+    }
+  ],
+  "record_count": 2,
+  "backend_source": "packaged_fixture",
+  "backend_path": null,
+  "warnings": [
+    "Using a small packaged AAindex fixture. Set BIO_MCP_AAINDEX1_PATH to a local AAindex1 flat file for full local AAindex1 support."
+  ],
+  "error": null
+}
+```
 
 ### `aaindex_sequence_features`
 
@@ -167,9 +230,31 @@ Example output excerpt:
     "min": -3.5,
     "max": 2.5
   },
-  "missing_residues": []
+  "missing_residues": [],
+  "backend_source": "packaged_fixture",
+  "backend_path": null,
+  "record_count": 2,
+  "warnings": [
+    "Using a small packaged AAindex fixture. Set BIO_MCP_AAINDEX1_PATH to a local AAindex1 flat file for full local AAindex1 support."
+  ],
+  "error": null
 }
 ```
+
+With a full local AAindex1 backend:
+
+```bash
+export BIO_MCP_AAINDEX1_PATH=/path/to/aaindex1
+```
+
+```json
+{
+  "text": "ACD",
+  "index_id": "KYTJ820101"
+}
+```
+
+The response uses `backend_source: "env_file"` and reports `backend_path` and the parsed `record_count`.
 
 ### `mafft_align`
 
@@ -394,10 +479,21 @@ Example output excerpt:
       "error": null
     }
   },
+  "aaindex_backend": {
+    "backend_source": "packaged_fixture",
+    "backend_path": null,
+    "available": true,
+    "record_count": 2,
+    "error": null,
+    "warnings": [
+      "Using a small packaged AAindex fixture. Set BIO_MCP_AAINDEX1_PATH to a local AAindex1 flat file for full local AAindex1 support."
+    ]
+  },
   "available_tools": [
     "validate_protein_sequence",
     "protparam_analyze",
     "aaindex_lookup",
+    "aaindex_list",
     "aaindex_sequence_features",
     "mafft_align",
     "clustalo_align",
@@ -438,7 +534,9 @@ MAFFT, Clustal Omega, BLASTP, and PSI-BLAST wrappers are local-only and make no 
 
 ## Known Phase 1 Limitations
 
-- The AAindex backend is a small packaged fixture, not a full AAindex parser.
+- Full AAindex1 coverage requires a local AAindex1 flat file via `BIO_MCP_AAINDEX1_PATH`.
+- AAindex2 and AAindex3 are not implemented yet.
+- AAindex data is not downloaded automatically.
 - Without Biopython, `protparam_analyze` does not compute theoretical pI or instability index.
 - Only the 20 standard amino acid one-letter codes are accepted for computation.
 - MAFFT and Clustal Omega wrappers require local binaries via environment override or `PATH`; they are not installed or downloaded by `bio-mcp`.

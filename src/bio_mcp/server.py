@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from bio_mcp import __version__
 from bio_mcp.core.sequence import MAX_PROTEIN_SEQUENCE_LENGTH
 from bio_mcp.schemas import (
+    AaindexListInput,
     AaindexLookupInput,
     AaindexSequenceFeaturesInput,
     BlastpLocalInput,
@@ -16,7 +17,11 @@ from bio_mcp.schemas import (
     PsiblastLocalInput,
     ProteinSequenceInput,
 )
-from bio_mcp.tools.aaindex import aaindex_lookup_tool, aaindex_sequence_features_tool
+from bio_mcp.tools.aaindex import (
+    aaindex_list_tool,
+    aaindex_lookup_tool,
+    aaindex_sequence_features_tool,
+)
 from bio_mcp.tools.alignment import clustalo_align_tool, mafft_align_tool
 from bio_mcp.tools.blast import blastp_local_tool, psiblast_local_tool
 from bio_mcp.tools.health import bio_mcp_health_tool
@@ -63,13 +68,22 @@ def build_server():
     def aaindex_lookup(
         index_id: str | None = None,
         query: str | None = None,
-        limit: int = 10,
+        limit: int = 20,
     ) -> dict:
-        """Look up packaged AAindex metadata and amino acid values by id or query."""
+        """Look up local AAindex metadata and amino acid values by id or query."""
 
         return aaindex_lookup_tool(
             AaindexLookupInput(index_id=index_id, query=query, limit=limit)
         ).model_dump()
+
+    @mcp.tool()
+    def aaindex_list(
+        query: str | None = None,
+        limit: int = 50,
+    ) -> dict:
+        """List local AAindex metadata without amino acid value tables."""
+
+        return aaindex_list_tool(AaindexListInput(query=query, limit=limit)).model_dump()
 
     @mcp.tool()
     def aaindex_sequence_features(

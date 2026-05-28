@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 from bio_mcp.core.sequence import (
     MAX_ALIGNMENT_SEQUENCE_LENGTH,
@@ -81,15 +81,9 @@ class AaindexLookupInput(BaseModel):
     )
     query: str | None = Field(
         default=None,
-        description="Case-insensitive text search across packaged AAindex metadata.",
+        description="Case-insensitive text search across AAindex metadata.",
     )
-    limit: int = Field(default=10, ge=1, le=25)
-
-    @model_validator(mode="after")
-    def require_lookup_value(self) -> "AaindexLookupInput":
-        if not (self.index_id and self.index_id.strip()) and not (self.query and self.query.strip()):
-            raise ValueError("Provide index_id or query.")
-        return self
+    limit: int = Field(default=20, ge=1, le=500)
 
 
 class AaindexRecord(BaseModel):
@@ -98,9 +92,11 @@ class AaindexRecord(BaseModel):
     accession: str
     title: str
     description: str | None = None
+    pmid: str | None = None
     authors: str | None = None
     journal: str | None = None
-    values: dict[str, float] | None = None
+    correlations: dict[str, float | None] = Field(default_factory=dict)
+    values: dict[str, float | None] | None = None
     value_order: str = STANDARD_AMINO_ACIDS
 
 
@@ -109,7 +105,45 @@ class AaindexLookupOutput(BaseModel):
 
     query: str
     matches: list[AaindexRecord]
+    backend_source: Literal["env_file", "packaged_fixture"]
+    backend_path: str | None = None
+    record_count: int
     warnings: list[str] = Field(default_factory=list)
+    error: str | None = None
+    provenance: ToolProvenance
+
+
+class AaindexListInput(BaseModel):
+    """AAindex lightweight listing input."""
+
+    query: str | None = Field(
+        default=None,
+        description="Optional case-insensitive text search across AAindex metadata.",
+    )
+    limit: int = Field(default=50, ge=1, le=500)
+
+
+class AaindexMetadataRecord(BaseModel):
+    """Lightweight AAindex metadata without amino acid values."""
+
+    accession: str
+    title: str
+    description: str | None = None
+    pmid: str | None = None
+    authors: str | None = None
+    journal: str | None = None
+    correlations: dict[str, float | None] = Field(default_factory=dict)
+
+
+class AaindexListOutput(BaseModel):
+    """AAindex listing output."""
+
+    records: list[AaindexMetadataRecord]
+    record_count: int
+    backend_source: Literal["env_file", "packaged_fixture"]
+    backend_path: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+    error: str | None = None
     provenance: ToolProvenance
 
 
@@ -144,7 +178,11 @@ class AaindexSequenceFeaturesOutput(BaseModel):
     per_residue_values: list[ResidueFeatureValue]
     summary_stats: SummaryStats
     missing_residues: list[str] = Field(default_factory=list)
+    backend_source: Literal["env_file", "packaged_fixture"]
+    backend_path: str | None = None
+    record_count: int
     warnings: list[str] = Field(default_factory=list)
+    error: str | None = None
     provenance: ToolProvenance
 
 
@@ -252,6 +290,17 @@ class CommandDependencyStatus(BaseModel):
     error: str | None = None
 
 
+class AaindexBackendStatus(BaseModel):
+    """Availability details for the configured AAindex1 backend."""
+
+    backend_source: Literal["env_file", "packaged_fixture"]
+    backend_path: str | None = None
+    available: bool
+    record_count: int
+    error: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+
+
 class HealthOutput(BaseModel):
     """Server health/status output."""
 
@@ -259,6 +308,7 @@ class HealthOutput(BaseModel):
     python_version: str
     optional_dependencies: dict[str, OptionalDependencyStatus]
     cli_binaries: dict[str, CommandDependencyStatus]
+    aaindex_backend: AaindexBackendStatus
     available_tools: list[str]
     execution_mode: Literal["local"] = "local"
     warnings: list[str] = Field(default_factory=list)

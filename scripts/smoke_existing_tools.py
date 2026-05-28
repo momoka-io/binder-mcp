@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import sys
+import os
 import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from bio_mcp.schemas import (
+    AaindexListInput,
     AaindexLookupInput,
     AaindexSequenceFeaturesInput,
     BlastpLocalInput,
@@ -17,7 +19,12 @@ from bio_mcp.schemas import (
     PsiblastLocalInput,
     ProteinSequenceInput,
 )
-from bio_mcp.tools.aaindex import aaindex_lookup_tool, aaindex_sequence_features_tool
+from bio_mcp.tools.aaindex import (
+    AAINDEX1_ENV_VAR,
+    aaindex_list_tool,
+    aaindex_lookup_tool,
+    aaindex_sequence_features_tool,
+)
 from bio_mcp.tools.alignment import clustalo_align_tool, detect_clustalo, detect_mafft, mafft_align_tool
 from bio_mcp.tools.blast import (
     blastp_local_tool,
@@ -57,8 +64,9 @@ def main() -> int:
     check("validate_protein_sequence valid", _smoke_validate_valid)
     check("validate_protein_sequence invalid", _smoke_validate_invalid)
     check("protparam_analyze", _smoke_protparam)
-    check("aaindex_lookup KYTJ820101", _smoke_aaindex_lookup)
-    check("aaindex_sequence_features KYTJ820101", _smoke_aaindex_features)
+    check("aaindex_backend", _smoke_aaindex_backend)
+    check("aaindex_lookup", _smoke_aaindex_lookup)
+    check("aaindex_sequence_features", _smoke_aaindex_features)
     check("bio_mcp_health", _smoke_health)
     check("mafft_align", _smoke_mafft)
     check("clustalo_align", _smoke_clustalo)
@@ -98,18 +106,53 @@ def _smoke_protparam() -> str:
 
 
 def _smoke_aaindex_lookup() -> str:
-    output = aaindex_lookup_tool(AaindexLookupInput(index_id="KYTJ820101"))
+    index_id = _smoke_aaindex_index_id()
+    output = aaindex_lookup_tool(AaindexLookupInput(index_id=index_id))
+    assert output.error is None, output.error
     assert output.matches
-    assert output.matches[0].accession == "KYTJ820101"
-    return f"matches={len(output.matches)}"
+    assert output.matches[0].accession == index_id
+    return (
+        f"backend={output.backend_source}, records={output.record_count}, "
+        f"id={index_id}, matches={len(output.matches)}"
+    )
 
 
 def _smoke_aaindex_features() -> str:
+    index_id, sequence = _smoke_aaindex_feature_input()
     output = aaindex_sequence_features_tool(
-        AaindexSequenceFeaturesInput(text="ACD", index_id="KYTJ820101")
+        AaindexSequenceFeaturesInput(text=sequence, index_id=index_id)
     )
+    assert output.error is None, output.error
     assert output.summary_stats.mean is not None
-    return f"mean={output.summary_stats.mean:.3f}"
+    return f"backend={output.backend_source}, id={index_id}, mean={output.summary_stats.mean:.3f}"
+
+
+def _smoke_aaindex_backend() -> str:
+    listing = aaindex_list_tool(AaindexListInput(limit=1))
+    assert listing.error is None, listing.error
+    if AAINDEX1_ENV_VAR in os.environ:
+        assert listing.backend_source == "env_file"
+    else:
+        assert listing.backend_source == "packaged_fixture"
+    return f"source={listing.backend_source}, records={listing.record_count}"
+
+
+def _smoke_aaindex_index_id() -> str:
+    listing = aaindex_list_tool(AaindexListInput(limit=1))
+    assert listing.error is None, listing.error
+    assert listing.records
+    return listing.records[0].accession
+
+
+def _smoke_aaindex_feature_input() -> tuple[str, str]:
+    lookup = aaindex_lookup_tool(AaindexLookupInput(index_id=_smoke_aaindex_index_id()))
+    assert lookup.error is None, lookup.error
+    assert lookup.matches and lookup.matches[0].values
+    record = lookup.matches[0]
+    residues = [residue for residue, value in record.values.items() if value is not None]
+    assert residues
+    sequence = "".join(residues[:3]) if len(residues) >= 3 else residues[0]
+    return record.accession, sequence
 
 
 def _smoke_health() -> str:
